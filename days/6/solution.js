@@ -1,14 +1,14 @@
 module.exports = function (input) {
     const width = input.indexOf('\n')
     const height = (input.trim().length + 1) / (width + 1)
-    const walls = []
+    const walls = new Set()
     let lastWall = -1
     while (true) {
         let wallIndex = input.indexOf('#', lastWall + 1)
         if (wallIndex !== -1) {
             const x = wallIndex % (width + 1)
             const y = Math.floor(wallIndex / (width + 1))
-            walls.push([x, y])
+            walls.add(x + 1 + (y + 1) * (width + 1))
             lastWall = wallIndex
         } else {
             break
@@ -16,56 +16,68 @@ module.exports = function (input) {
     }
 
     const guardIndex = input.indexOf('^')
-    let guardPos = [
-        guardIndex % (width + 1),
-        Math.floor(guardIndex / (width + 1))
-    ]
-    let guardDelta = [0, -1]
+    const guardX = guardIndex % (width + 1)
+    const guardY = Math.floor(guardIndex / (width + 1))
+    
 
-    const part1 = tracePath(guardPos, guardDelta, walls, width, height, true)
+    const answers = tracePath(guardX, guardY, 0, -1, walls, width, height)
 
-    return [part1]
+    return answers
 }
 
-function tracePath(pos, delta, walls, width, height, placeWall) {
-    let guardPos = pos
-    let guardDelta = delta
-    const seenplaces1 = new Map()
-    const seenplaces2 = new Map()
-    let step = 0
-    const newWalls = new Set()
+function tracePath(gx, gy, dx, dy, walls, width, height) {
+    const seenplaces = new Set()
+    let newWalls = 0
     
     while (true) {
-        const posHash1 = guardPos[0] + guardPos[1] * width
-        if (seenplaces1.has(posHash1)) {
-            // loop
-        } else {
-            seenplaces1.set(posHash1, step)
-        }
+        const posHash = gx + 1 + (gy + 1) * (width + 1)
+        seenplaces.add(posHash)
 
-        const posHash2 = ((guardPos[0] + guardPos[1] * width) * 10 + guardDelta[0] + 1) * 10 + guardDelta[1] + 1
-        if (seenplaces2.has(posHash2)) {
-            return true
-        } else {
-            seenplaces2.set(posHash2, step)
-        }
-        step += 1
-
-        if (walls.find(wall => wall[0] === (guardPos[0] + guardDelta[0]) && wall[1] === (guardPos[1] + guardDelta[1])) !== undefined) {
-            guardDelta = [-guardDelta[1], guardDelta[0]]
+        const nextStep = gx + dx + 1 + (gy + dy + 1) * (width + 1)
+        if (walls.has(nextStep)) {
+            const temp = dx
+            dx = -dy
+            dy = temp
         } else {
             if (
-                placeWall &&
-                seenplaces1.has(guardPos[0] + guardDelta[0] + (guardPos[1] + guardDelta[1]) * width) === false &&
-                tracePath([...guardPos], [...guardDelta], [...walls, [guardPos[0] + guardDelta[0], guardPos[1] + guardDelta[1]]], width, height, false) === true) {
-                newWalls.add(guardPos[0] + guardDelta[0] + (guardPos[1] + guardDelta[1]) * width)
+                seenplaces.has(nextStep) === false &&
+                checkLoop(gx, gy, dx, dy, walls, width, height, nextStep) === true
+            ) {
+                newWalls++
             }
-            guardPos[0] += guardDelta[0]
-            guardPos[1] += guardDelta[1]
+            gx += dx
+            gy += dy
         }
-        if (guardPos[0] < 0 || guardPos[0] >= width || guardPos[1] < 0 || guardPos[1] >= height) {
+        if (gx < 0 || gx >= width || gy < 0 || gy >= height) {
             break
         }
     }
-    return [seenplaces1.size, newWalls.size]
+    return [seenplaces.size, newWalls]
+}
+
+function checkLoop(gx, gy, dx, dy, walls, width, height, extraWall) {
+    const seenplaces = new Set()
+    
+    while (true) {
+        const posHash = ((gx + gy * width) * 10 + dx + 1) * 10 + dy + 1
+        if (seenplaces.has(posHash)) {
+            return true
+        } else {
+            seenplaces.add(posHash)
+        }
+
+        const nextStep = gx + dx + 1 + (gy + dy + 1) * (width + 1)
+        if (walls.has(nextStep) || extraWall === nextStep) {
+            const temp = dx
+            dx = -dy
+            dy = temp
+        } else {
+            gx += dx
+            gy += dy
+        }
+        if (gx < 0 || gx >= width || gy < 0 || gy >= height) {
+            break
+        }
+    }
+    return false
 }
